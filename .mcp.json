@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "goema-db": {
+      "type": "local",
+      "command": "python3",
+      "args": [
+        "mcp-stdio-proxy.py",
+        "docker",
+        "run", "-i", "--rm",
+        "--add-host=host.docker.internal:host-gateway",
+        "-e", "DATABASE_URI",
+        "crystaldba/postgres-mcp",
+        "--access-mode=restricted"
+      ],
+      "env": {
+        "DATABASE_URI": "postgresql://goema:goema@host.docker.internal:5432/goema"
+      },
+      "tools": ["*"]
+    }
+  }
+}

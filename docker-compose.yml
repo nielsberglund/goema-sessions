@@ -1,0 +1,39 @@
+# Local PostgreSQL for The Goema Sessions — play-along copy.
+#
+# All data here is LOCAL and SYNTHETIC — a sample music store, no real people.
+#
+#   Start:   docker compose up -d
+#   Stop:    docker compose down            (keeps data)
+#   Reset:   docker compose down -v         (wipes the volume — fresh start)
+#   Connect: psql postgresql://goema:goema@localhost:5432/goema
+#
+# Any *.sql / *.sh files placed in ./init run automatically on FIRST start
+# (i.e. when the data volume is empty). That's how the dataset is seeded.
+#
+# Port: set GOEMA_PG_PORT if 5432 is already taken on your machine, and change
+# the port in .mcp.json to match (see README.md).
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: goema-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: goema
+      POSTGRES_PASSWORD: goema
+      POSTGRES_DB: goema
+      # Fast, predictable collation for demo output ordering.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "${GOEMA_PG_PORT:-5432}:5432"
+    volumes:
+      - goema-pgdata:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U goema -d goema"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  goema-pgdata:
