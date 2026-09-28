@@ -1,6 +1,16 @@
-# Local PostgreSQL for The Goema Sessions — play-along copy.
+# Local PostgreSQL for the Maskandi Sessions demo, plus the read-only connector
+# GitHub Copilot CLI uses to query it.
 #
-# All data here is LOCAL and SYNTHETIC — a sample music store, no real people.
+# All data here is LOCAL and ANONYMIZED — never put real attendee PII on stage.
+# Wifi is never in the critical path; this runs entirely on the laptop.
+#
+# Two services:
+#   postgres      the database                        localhost:5432
+#   goema-mcp  the connector (postgres-mcp,        http://localhost:8766/sse
+#                 restricted mode = read-only SQL)
+#
+# The connector runs here as a service, and .mcp.json only points GitHub Copilot CLI at its
+# URL.
 #
 #   Start:   docker compose up -d
 #   Stop:    docker compose down            (keeps data)
@@ -8,10 +18,7 @@
 #   Connect: psql postgresql://goema:goema@localhost:5432/goema
 #
 # Any *.sql / *.sh files placed in ./init run automatically on FIRST start
-# (i.e. when the data volume is empty). That's how the dataset is seeded.
-#
-# Port: set GOEMA_PG_PORT if 5432 is already taken on your machine, and change
-# the port in .mcp.json to match (see README.md).
+# (i.e. when the volume is empty). Use that to seed the anonymized dataset.
 
 services:
   postgres:
@@ -27,13 +34,28 @@ services:
     ports:
       - "${GOEMA_PG_PORT:-5432}:5432"
     volumes:
-      - goema-pgdata:/var/lib/postgresql/data
+      - ./goema-pgdata:/var/lib/postgresql/data
       - ./init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U goema -d goema"]
       interval: 5s
       timeout: 3s
       retries: 5
+
+
+  goema-mcp:
+    image: crystaldba/postgres-mcp:latest
+    container_name: goema-mcp
+    restart: unless-stopped
+    # READ-ONLY: restricted mode can't drop, edit or truncate anything.
+    command: ["--access-mode=restricted", "--transport=sse", "--sse-host=0.0.0.0", "--sse-port=8000"]
+    environment:
+      DATABASE_URI: postgresql://goema:goema@postgres:5432/goema
+    ports:
+      - "8766:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   goema-pgdata:

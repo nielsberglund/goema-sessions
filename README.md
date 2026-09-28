@@ -2,35 +2,25 @@
 
 *GitHub Copilot Dev Days Cape Town, 3 October 2026*
 
-In the session we point **GitHub Copilot CLI** at a database it has never seen and
-improvise a data analysis with it — live, no script. This repo lets you do the same on
-your own laptop: a small local database and a read-only connector that lets Copilot
-query it.
+In the session we point **GitHub Copilot CLI** at a database it has never seen and improvise a data analysis with it — live, no script. This repo lets you do the same on your own laptop: a small local database and a read-only connector that lets Copilot query it.
 
-**Following along is optional.** Nothing in the talk depends on your laptop working.
-If you'd rather watch, watch — this repo stays up, so you can replay the whole thing
-tonight.
+**Following along is optional.** Nothing in the talk depends on your laptop working. If you'd rather watch, watch — this repo stays up, so you can replay the whole thing tonight.
 
-All the data is **local and synthetic**: a sample digital music store (the classic
-*Chinook* dataset), plus a sprinkling of deliberate mess, plus a few made-up Cape Town
-gigs. No real people.
+All the data is **local and synthetic**: a sample digital music store (the classic *Chinook* dataset), plus a sprinkling of deliberate mess, plus a few made-up Cape Town gigs. No real people.
 
 ---
 
 ## What you need
 
-1. **Docker Desktop**, installed and **running**. The database and the connector both
-   run as containers. <https://www.docker.com/products/docker-desktop/>
-2. **GitHub Copilot CLI**, and a **Copilot subscription that lets you use it** (if your
-   organisation manages your Copilot seat, it may have the CLI switched off).
+1. **Docker Desktop**, installed and **running**. The database and the connector both run as containers. <https://www.docker.com/products/docker-desktop/>
+2. **GitHub Copilot CLI**, and a **Copilot subscription that lets you use it** (if your organisation manages your Copilot seat, it may have the CLI switched off).
+
    ```bash
    npm install -g @github/copilot       # needs Node 22+
    brew install --cask copilot-cli      # macOS / Linux
    winget install GitHub.Copilot        # Windows
    ```
    Docs: <https://docs.github.com/en/copilot/how-tos/copilot-cli>
-3. **Python 3** on your path. It runs a tiny shim between Copilot and the connector —
-   see [Why is there a Python file?](#why-is-there-a-python-file) below.
 
 ---
 
@@ -50,13 +40,9 @@ cd goema-sessions
 docker compose up -d
 ```
 
-**3. Pre-pull the connector image**, so nothing downloads during the session:
+> **NOTE:** The PostgreSQL MCP connector is automatically pulled and started by Docker Compose. You don't need to do anything manually.
 
-```bash
-docker pull crystaldba/postgres-mcp
-```
-
-**4. Log in to Copilot CLI once.**
+**3. Log in to Copilot CLI once.**
 
 ```bash
 copilot
@@ -64,7 +50,7 @@ copilot
 
 Then type `/login`, follow the prompts, and `/exit` when you're done.
 
-**5. Check the data loaded.**
+**4. Check the data loaded.**
 
 ```bash
 docker compose exec postgres psql -U goema -d goema -c "select count(*) from artist;"
@@ -79,29 +65,15 @@ You should see **278**. If you do, you're ready to play.
 From the **root of this repo**:
 
 ```bash
-copilot --additional-mcp-config "@.mcp.json"
+copilot
 ```
-
-(Keep the quotes: in PowerShell a bare `@` means something else.)
 
 The first time Copilot wants to use the connector it will ask for permission. Say yes.
 Then try:
 
 > What's in this database? Use the goema-db connector. Take a look around and tell me what it's about.
 
-If Copilot answers with tables about artists, albums, tracks and invoices, you're
-connected.
-
-### Why the flag, and not just `copilot`?
-
-`.mcp.json` is where the connector (`goema-db`) is defined. Copilot CLI's docs say it
-reads a `.mcp.json` from your project folder automatically, but in testing (v1.0.86 and
-v1.0.87) it didn't. `--additional-mcp-config` hands the file over explicitly, for **this
-session only**. It doesn't touch your `~/.copilot` settings, so nothing is left behind
-after today.
-
-> **Launch it from the repo root.** `.mcp.json` points at `mcp-stdio-proxy.py` with a
-> relative path, so if you start Copilot from somewhere else it won't find the file.
+If Copilot answers with tables about artists, albums, tracks and invoices, you're connected.
 
 ---
 
@@ -113,8 +85,7 @@ When I say **"your turn"**, type the prompt on screen. These are the two:
 
 > The USA is our biggest market. Pull every US sale and give me the exact total.
 
-Then compare notes with the person next to you. You'll probably get different SQL and
-maybe different numbers. That's not a bug; it's the point of the session.
+Then compare notes with the person next to you. You'll probably get different SQL and maybe different numbers. That's not a bug; it's the point of the session.
 
 After that, ask it anything you like. It's your database now.
 
@@ -124,35 +95,19 @@ After that, ask it anything you like. It's your database now.
 
 | File | What it is |
 |---|---|
-| `docker-compose.yml` | The local PostgreSQL 17 database. User, password and database are all `goema`, on port `5432`. |
+| `docker-compose.yml` | The local PostgreSQL 17 database and the MCP server. User, password and database are all `goema`, on port `5432`. |
 | `init/01-chinook.sql` | The **Chinook** sample dataset: a digital music store. Loaded automatically on first start. |
 | `init/02-messy-rows.sql` | Some deliberately messy data. Real data is never clean, so this one isn't either. (No spoilers: see what Copilot finds before you read it.) |
 | `init/03-cape-town-gigs.sql` | A small, made-up Cape Town layer: venues, gigs, ticket sales. |
 | `.mcp.json` | The connector config. It tells Copilot how to start the database connector, `goema-db`. |
-| `mcp-stdio-proxy.py` | A small shim between Copilot CLI and the connector. See below. |
+
 
 ### How the connector works
 
-Copilot doesn't talk to Postgres directly. `.mcp.json` tells Copilot to start
-**[Postgres MCP Pro](https://github.com/crystaldba/postgres-mcp)** in a container. That
-connector runs the SQL on Copilot's behalf and hands back the results.
+Copilot doesn't talk to Postgres directly. `.mcp.json` tells Copilot to start **[Postgres MCP Pro](https://github.com/crystaldba/postgres-mcp)** in a container. That connector runs the SQL on Copilot's behalf and hands back the results.
 
-- **It is read-only.** `--access-mode=restricted` means the connector *cannot* change
-  the database, whatever you ask. Ask it to delete something and watch it refuse.
-- **`host.docker.internal`** is how the connector's container reaches the database
-  port on your machine. The `--add-host` flag makes that name work on Linux as well.
-
-### Why is there a Python file?
-
-Copilot CLI sends every connector a `server/discover` request before the usual
-handshake. Most connectors ignore that request, and Copilot falls back to the normal
-handshake. Postgres MCP Pro crashes on it instead, so the connection dies before it
-starts.
-
-`mcp-stdio-proxy.py` sits in the middle. It answers `server/discover` with "method not
-found", so Copilot falls back to the normal handshake, and passes everything else
-through untouched. The comment at the top of the file has the details. If a later
-version of either tool fixes this, the shim just becomes a no-op pass-through.
+- **It is read-only.** `--access-mode=restricted` means the connector *cannot* change the database, whatever you ask. Ask it to delete something and watch it refuse.
+- **`host.docker.internal`** is how the connector's container reaches the database port on your machine. The `--add-host` flag makes that name work on Linux as well.
 
 ---
 

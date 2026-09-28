@@ -1,3 +1,7 @@
+# Local PostgreSQL data directory (Docker bind mount) — never commit.
+# Regenerated from init/*.sql on a fresh `docker compose up -d`.
+goema-pgdata/
+
 # Anything Copilot writes while you play (pages, charts) — not source.
 the-goema-set.md
 the-goema-set.html
